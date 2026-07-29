@@ -1,0 +1,28 @@
+{
+  "towers": [
+    {
+      "id": "T001",
+      "name": "Downtown Macrocell 1",
+      "type": "macro",
+      "coordinates": [12.9716, 77.5946],
+      "tx_power_dbm": 43,
+      "frequency_mhz": 1800
+    },
+    {
+      "id": "T002",
+      "name": "Suburban Microcell 2",
+      "type": "micro",
+      "coordinates": [12.9726, 77.5956],
+      "tx_power_dbm": 33,
+      "frequency_mhz": 2100
+    }
+  ],
+  "connections": [
+    {
+      "source_id": "T001",
+      "target_id": "T002",
+      "type": "fiber",
+      "latency_ms": 2.5
+    }
+  ]
+}

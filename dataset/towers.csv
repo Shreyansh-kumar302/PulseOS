@@ -1,0 +1,4 @@
+tower_id,latitude,longitude,capacity,status
+T001,12.9716,77.5946,100,active
+T002,12.9726,77.5956,150,active
+T003,12.9736,77.5966,80,maintenance

@@ -1,0 +1,16 @@
+{
+  "predictions": [
+    {
+      "timestamp": "2026-07-29T18:00:00Z",
+      "target_tower": "T001",
+      "predicted_load_pct": 82.4,
+      "congestion_risk": "high"
+    },
+    {
+      "timestamp": "2026-07-29T19:00:00Z",
+      "target_tower": "T002",
+      "predicted_load_pct": 45.1,
+      "congestion_risk": "low"
+    }
+  ]
+}

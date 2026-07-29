@@ -1,0 +1,4 @@
+user_id,connected_tower_id,signal_strength,data_usage_mb
+U001,T001,-75,45.2
+U002,T001,-82,120.5
+U003,T002,-68,8.4

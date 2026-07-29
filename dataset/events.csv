@@ -1,0 +1,3 @@
+event_id,timestamp,tower_id,event_type,severity
+E001,2026-07-29T12:00:00Z,T003,outage,high
+E002,2026-07-29T12:05:00Z,T001,high_load,medium

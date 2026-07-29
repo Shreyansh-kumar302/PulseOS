@@ -1,0 +1,16 @@
+{
+  "optimization_results": [
+    {
+      "run_id": "OPT-001",
+      "timestamp": "2026-07-29T17:30:00Z",
+      "algorithm": "qubo",
+      "solver_status": "success",
+      "optimal_energy": -34.87,
+      "variables_assigned": {
+        "x_0": 1,
+        "x_1": 0,
+        "x_2": 1
+      }
+    }
+  ]
+}
