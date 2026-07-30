@@ -2,27 +2,283 @@
   "towers": [
     {
       "id": "T001",
-      "name": "Downtown Macrocell 1",
-      "type": "macro",
-      "coordinates": [12.9716, 77.5946],
-      "tx_power_dbm": 43,
-      "frequency_mhz": 1800
+      "name": "BLR_Micro_001",
+      "type": "micro",
+      "latitude": 13.005844257019177,
+      "longitude": 77.63945864217911,
+      "capacity": 150,
+      "status": "active",
+      "tx_power_dbm": 33.0,
+      "frequency_mhz": 3500.0
     },
     {
       "id": "T002",
-      "name": "Suburban Microcell 2",
+      "name": "BLR_Micro_002",
       "type": "micro",
-      "coordinates": [12.9726, 77.5956],
-      "tx_power_dbm": 33,
-      "frequency_mhz": 2100
+      "latitude": 12.97259398744533,
+      "longitude": 77.58803491184828,
+      "capacity": 150,
+      "status": "active",
+      "tx_power_dbm": 33.0,
+      "frequency_mhz": 2100.0
+    },
+    {
+      "id": "T003",
+      "name": "BLR_Macro_003",
+      "type": "macro",
+      "latitude": 12.978086776670173,
+      "longitude": 77.5571817213326,
+      "capacity": 500,
+      "status": "active",
+      "tx_power_dbm": 43.0,
+      "frequency_mhz": 2600.0
+    },
+    {
+      "id": "T004",
+      "name": "BLR_Pico_004",
+      "type": "pico",
+      "latitude": 12.92929157470776,
+      "longitude": 77.6153120956996,
+      "capacity": 50,
+      "status": "active",
+      "tx_power_dbm": 33.0,
+      "frequency_mhz": 1800.0
+    },
+    {
+      "id": "T005",
+      "name": "BLR_Macro_005",
+      "type": "macro",
+      "latitude": 12.925365065700031,
+      "longitude": 77.6444249417061,
+      "capacity": 500,
+      "status": "maintenance",
+      "tx_power_dbm": 43.0,
+      "frequency_mhz": 3500.0
+    },
+    {
+      "id": "T006",
+      "name": "BLR_Micro_006",
+      "type": "micro",
+      "latitude": 12.994612449159344,
+      "longitude": 77.56216340569932,
+      "capacity": 150,
+      "status": "inactive",
+      "tx_power_dbm": 33.0,
+      "frequency_mhz": 3500.0
+    },
+    {
+      "id": "T007",
+      "name": "BLR_Macro_007",
+      "type": "macro",
+      "latitude": 12.97278722577121,
+      "longitude": 77.54610742640548,
+      "capacity": 500,
+      "status": "active",
+      "tx_power_dbm": 43.0,
+      "frequency_mhz": 1800.0
+    },
+    {
+      "id": "T008",
+      "name": "BLR_Micro_008",
+      "type": "micro",
+      "latitude": 12.928395906187513,
+      "longitude": 77.58945760297034,
+      "capacity": 150,
+      "status": "active",
+      "tx_power_dbm": 33.0,
+      "frequency_mhz": 2100.0
+    },
+    {
+      "id": "T009",
+      "name": "BLR_Micro_009",
+      "type": "micro",
+      "latitude": 13.018036944901995,
+      "longitude": 77.61974402344968,
+      "capacity": 150,
+      "status": "active",
+      "tx_power_dbm": 33.0,
+      "frequency_mhz": 2600.0
+    },
+    {
+      "id": "T010",
+      "name": "BLR_Macro_010",
+      "type": "macro",
+      "latitude": 13.010304666616513,
+      "longitude": 77.64008627667482,
+      "capacity": 500,
+      "status": "active",
+      "tx_power_dbm": 43.0,
+      "frequency_mhz": 3500.0
     }
   ],
   "connections": [
     {
       "source_id": "T001",
       "target_id": "T002",
-      "type": "fiber",
-      "latency_ms": 2.5
+      "connection_type": "fiber",
+      "latency_ms": 3.61,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T001",
+      "target_id": "T003",
+      "connection_type": "fiber",
+      "latency_ms": 2.96,
+      "capacity_gbps": 5.0
+    },
+    {
+      "source_id": "T001",
+      "target_id": "T004",
+      "connection_type": "fiber",
+      "latency_ms": 2.51,
+      "capacity_gbps": 25.0
+    },
+    {
+      "source_id": "T002",
+      "target_id": "T003",
+      "connection_type": "microwave",
+      "latency_ms": 4.35,
+      "capacity_gbps": 5.0
+    },
+    {
+      "source_id": "T002",
+      "target_id": "T004",
+      "connection_type": "fiber",
+      "latency_ms": 4.77,
+      "capacity_gbps": 5.0
+    },
+    {
+      "source_id": "T002",
+      "target_id": "T005",
+      "connection_type": "microwave",
+      "latency_ms": 1.65,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T003",
+      "target_id": "T004",
+      "connection_type": "microwave",
+      "latency_ms": 3.11,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T003",
+      "target_id": "T005",
+      "connection_type": "microwave",
+      "latency_ms": 3.92,
+      "capacity_gbps": 5.0
+    },
+    {
+      "source_id": "T003",
+      "target_id": "T006",
+      "connection_type": "microwave",
+      "latency_ms": 4.85,
+      "capacity_gbps": 5.0
+    },
+    {
+      "source_id": "T004",
+      "target_id": "T005",
+      "connection_type": "fiber",
+      "latency_ms": 1.65,
+      "capacity_gbps": 5.0
+    },
+    {
+      "source_id": "T004",
+      "target_id": "T006",
+      "connection_type": "microwave",
+      "latency_ms": 4.26,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T004",
+      "target_id": "T007",
+      "connection_type": "microwave",
+      "latency_ms": 1.97,
+      "capacity_gbps": 25.0
+    },
+    {
+      "source_id": "T005",
+      "target_id": "T006",
+      "connection_type": "fiber",
+      "latency_ms": 2.77,
+      "capacity_gbps": 5.0
+    },
+    {
+      "source_id": "T005",
+      "target_id": "T007",
+      "connection_type": "fiber",
+      "latency_ms": 4.28,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T005",
+      "target_id": "T008",
+      "connection_type": "microwave",
+      "latency_ms": 1.57,
+      "capacity_gbps": 25.0
+    },
+    {
+      "source_id": "T006",
+      "target_id": "T007",
+      "connection_type": "microwave",
+      "latency_ms": 4.05,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T006",
+      "target_id": "T008",
+      "connection_type": "microwave",
+      "latency_ms": 1.87,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T006",
+      "target_id": "T009",
+      "connection_type": "microwave",
+      "latency_ms": 3.73,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T007",
+      "target_id": "T008",
+      "connection_type": "microwave",
+      "latency_ms": 3.77,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T007",
+      "target_id": "T009",
+      "connection_type": "fiber",
+      "latency_ms": 2.82,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T007",
+      "target_id": "T010",
+      "connection_type": "fiber",
+      "latency_ms": 4.79,
+      "capacity_gbps": 10.0
+    },
+    {
+      "source_id": "T008",
+      "target_id": "T009",
+      "connection_type": "microwave",
+      "latency_ms": 4.48,
+      "capacity_gbps": 5.0
+    },
+    {
+      "source_id": "T008",
+      "target_id": "T010",
+      "connection_type": "fiber",
+      "latency_ms": 3.26,
+      "capacity_gbps": 25.0
+    },
+    {
+      "source_id": "T009",
+      "target_id": "T010",
+      "connection_type": "microwave",
+      "latency_ms": 4.38,
+      "capacity_gbps": 10.0
     }
   ]
 }
