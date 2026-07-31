@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const API_BASE = 'http://127.0.0.1:5000';
+const API_BASE = window.location.origin.includes(':5173')
+  ? 'http://127.0.0.1:5000'
+  : window.location.origin;
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -15,6 +17,16 @@ function App() {
   const [networkData, setNetworkData] = useState({ towers: [], connections: [] });
   const [recommendations, setRecommendations] = useState([]);
   const [executiveSummary, setExecutiveSummary] = useState('');
+
+  // Digital Twin state variables
+  const [twinLogs, setTwinLogs] = useState([
+    { time: new Date().toTimeString().split(' ')[0], msg: 'System initialized. Digital twin connection established.' },
+    { time: new Date().toTimeString().split(' ')[0], msg: 'Baseline telemetry sync completed. 3 nodes verified.' }
+  ]);
+  const [simTower, setSimTower] = useState('T001');
+  const [simStatus, setSimStatus] = useState('ACTIVE');
+  const [simUsers, setSimUsers] = useState(140);
+  const [lastSyncMs, setLastSyncMs] = useState(250);
 
   // KPI stats state connected to backend
   const [kpis, setKpis] = useState({
@@ -107,6 +119,44 @@ function App() {
           setSyncing(false);
           alert('Digital Twin successfully synchronized with live physical telemetry! (Fallback)');
         }, 1200);
+      });
+  };
+
+  // Simulate dynamic telemetry sensor pinging
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLastSyncMs(Math.floor(Math.random() * 200) + 100);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Post new simulated status & user metrics to the digital twin
+  const triggerTelemetrySync = () => {
+    const payload = {
+      [simTower]: {
+        status: simStatus === 'OUTAGE' ? 'INACTIVE' : simStatus,
+        current_users: simUsers
+      }
+    };
+    
+    fetch(`${API_BASE}/network/twin/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(res => res.json())
+      .then(data => {
+        fetchDashboardData();
+        const entry = {
+          time: new Date().toTimeString().split(' ')[0],
+          msg: `Sync physical telemetry for ${simTower}: status=${simStatus}, users=${simUsers}`
+        };
+        setTwinLogs(prev => [entry, ...prev]);
+        alert(`Physical telemetry successfully synced into Digital Twin!`);
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Twinning sync failed. Check server connection.');
       });
   };
 
@@ -414,7 +464,7 @@ function App() {
 
         {/* Digital Twin Map Tab */}
         {activeTab === 'digitalTwin' && (
-          <div className="twin-container">
+          <div className="twin-container" style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '1.5rem', width: '100%' }}>
             {/* Interactive Tower Node Map */}
             <div className="map-view">
               <svg className="map-svg" viewBox="0 0 600 400">
@@ -430,7 +480,7 @@ function App() {
                       y1={getSvgY(src.latitude)} 
                       x2={getSvgX(tgt.longitude)} 
                       y2={getSvgY(tgt.latitude)} 
-                      className={`edge-line ${c.latency_ms > 2.8 ? 'critical' : 'active'}`} 
+                      className={`edge-line ${c.latency_ms > 2.8 || src.status === 'INACTIVE' || tgt.status === 'INACTIVE' ? 'critical' : 'active'}`} 
                     />
                   );
                 })}
@@ -454,61 +504,127 @@ function App() {
               </div>
             </div>
 
-            {/* Selected node telemetry panel */}
-            <div className="card">
-              <div className="card-title">
-                <h3>Telemetry details</h3>
+            {/* Right side controls column */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {/* Selected node telemetry panel */}
+              <div className="card">
+                <div className="card-title">
+                  <h3>Telemetry details</h3>
+                </div>
+                {networkData.towers && networkData.towers.find(t => t.id === selectedTower) ? (() => {
+                  const t = networkData.towers.find(t => t.id === selectedTower);
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Tower Name</label>
+                        <p style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-cyan)' }}>{t.name}</p>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Type</label>
+                          <p style={{ fontWeight: '600' }}>{t.type}</p>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Frequency</label>
+                          <p style={{ fontWeight: '600', fontFamily: 'var(--font-mono)' }}>{t.frequency_mhz} MHz</p>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Capacity</label>
+                          <p style={{ fontWeight: '600' }}>{t.capacity} Gbps</p>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Status</label>
+                          <p style={{ 
+                            fontWeight: '700', 
+                            color: t.status === 'ACTIVE' ? 'var(--status-safe)' : 'var(--status-danger)' 
+                          }}>{t.status}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Connected Users</span>
+                          <span>{t.current_users || 0}</span>
+                        </label>
+                        <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', marginTop: '0.25rem', overflow: 'hidden' }}>
+                          <div style={{ 
+                            width: `${Math.min(100, ((t.current_users || 0) / t.capacity) * 100)}%`, 
+                            height: '100%', 
+                            backgroundColor: 'var(--accent-cyan)'
+                          }}></div>
+                        </div>
+                      </div>
+                      <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setActiveTab('optimization')}>
+                        Optimize Channel Allocation
+                      </button>
+                    </div>
+                  );
+                })() : (
+                  <p style={{ color: 'var(--text-secondary)' }}>Select a tower node on the map to load telemetry details.</p>
+                )}
               </div>
-              {networkData.towers && networkData.towers.find(t => t.id === selectedTower) ? (() => {
-                const t = networkData.towers.find(t => t.id === selectedTower);
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Tower Name</label>
-                      <p style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-cyan)' }}>{t.name}</p>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Type</label>
-                        <p style={{ fontWeight: '600' }}>{t.type}</p>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Frequency</label>
-                        <p style={{ fontWeight: '600', fontFamily: 'var(--font-mono)' }}>{t.frequency_mhz} MHz</p>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Capacity</label>
-                        <p style={{ fontWeight: '600' }}>{t.capacity} Gbps</p>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Status</label>
-                        <p style={{ 
-                          fontWeight: '700', 
-                          color: t.status === 'ACTIVE' ? 'var(--status-safe)' : 'var(--status-danger)' 
-                        }}>{t.status}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Connected Users</span>
-                        <span>{t.current_users || 0}</span>
-                      </label>
-                      <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', marginTop: '0.25rem', overflow: 'hidden' }}>
-                        <div style={{ 
-                          width: `${Math.min(100, ((t.current_users || 0) / t.capacity) * 100)}%`, 
-                          height: '100%', 
-                          backgroundColor: 'var(--accent-cyan)'
-                        }}></div>
-                      </div>
-                    </div>
-                    <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setActiveTab('optimization')}>
-                      Optimize Channel Allocation
-                    </button>
+
+              {/* Twinning Simulator Card */}
+              <div className="card" style={{ border: '1px solid var(--border-active)' }}>
+                <div className="card-title">
+                  <h3>🔄 Twinning Control & Simulator</h3>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(102, 252, 241, 0.05)', padding: '0.5rem', borderRadius: '6px' }}>
+                    <span>Twinning Status: <strong style={{ color: 'var(--status-safe)' }}>SYNCED</strong></span>
+                    <span>Sensor Ping: <strong style={{ fontFamily: 'var(--font-mono)' }}>{lastSyncMs} ms</strong></span>
                   </div>
-                );
-              })() : (
-                <p style={{ color: 'var(--text-secondary)' }}>Select a tower node on the map to load telemetry details.</p>
-              )}
+
+                  <h4 style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '0.25rem', margin: '0.5rem 0 0.25rem' }}>Simulate Telemetry Drift</h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <div className="form-group">
+                      <label style={{ fontSize: '0.7rem' }}>Select Target Node</label>
+                      <select className="cyber-select" value={simTower} onChange={(e) => setSimTower(e.target.value)} style={{ padding: '0.3rem', fontSize: '0.8rem', backgroundColor: 'var(--bg-surface)' }}>
+                        {networkData.towers && networkData.towers.map(t => (
+                          <option key={t.id} value={t.id}>{t.id} - {t.name.split(' ')[0]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label style={{ fontSize: '0.7rem' }}>Grid Status</label>
+                      <select className="cyber-select" value={simStatus} onChange={(e) => setSimStatus(e.target.value)} style={{ padding: '0.3rem', fontSize: '0.8rem', backgroundColor: 'var(--bg-surface)' }}>
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="MAINTENANCE">MAINTENANCE</option>
+                        <option value="OUTAGE">OUTAGE</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Connected User Telemetry</span>
+                      <span>{simUsers} / 200</span>
+                    </label>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="200" 
+                      value={simUsers} 
+                      onChange={(e) => setSimUsers(parseInt(e.target.value))} 
+                      className="cyber-slider"
+                      style={{ marginTop: '0.2rem' }}
+                    />
+                  </div>
+
+                  <button className="btn btn-secondary" style={{ width: '100%', border: '1px solid var(--accent-cyan)' }} onClick={triggerTelemetrySync}>
+                    📡 PING & SYNC TELEMETRY
+                  </button>
+
+                  <h4 style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '0.25rem', margin: '0.5rem 0 0.25rem' }}>Twinning Live Log Stream</h4>
+                  <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '6px', height: '100px', overflowY: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', textAlign: 'left' }}>
+                    {twinLogs.map((log, idx) => (
+                      <div key={idx} style={{ color: log.msg.includes('Sync') ? 'var(--accent-cyan)' : 'var(--text-secondary)' }}>
+                        [{log.time}] {log.msg}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

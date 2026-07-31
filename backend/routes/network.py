@@ -39,3 +39,29 @@ def generate_network(
 ) -> NetworkState:
     """Generates a fresh synthetic network topology."""
     return service.generate_network()
+
+
+@router.post(
+    "/twin/sync",
+    response_model=NetworkState,
+    summary="Sync digital twin state",
+    description="Updates the digital twin state with telemetry.",
+)
+def sync_digital_twin(
+    telemetry: dict,
+    service: NetworkService = Depends(get_network_service),
+) -> NetworkState:
+    """Syncs real-world telemetry with the digital twin."""
+    return service.sync_digital_twin(telemetry)
+
+
+@router.get(
+    "/twin/state",
+    summary="Get digital twin state",
+    description="Returns the current synchronized digital twin state.",
+)
+def get_twin_state(
+    service: NetworkService = Depends(get_network_service),
+) -> dict:
+    """Returns the current digital twin state."""
+    return service.get_twin_state()

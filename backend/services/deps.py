@@ -79,8 +79,9 @@ def get_metrics_engine() -> MetricsEngine:
     return MetricsEngine()
 
 
+@lru_cache(maxsize=1)
 def get_network_service() -> NetworkService:
-    """Provides a NetworkService instance."""
+    """Provides a cached NetworkService singleton instance."""
     return NetworkService()
 
 

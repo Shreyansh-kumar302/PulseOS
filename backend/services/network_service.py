@@ -55,26 +55,82 @@ class NetworkService:
     def generate_network(self) -> NetworkState:
         """
         Generates a fresh synthetic network topology via NetworkGenerator.
-
-        Returns a canonical NetworkState object — not a raw dict.
+        Saves the generated state back to network.json to persist it.
         """
-        return self._generator.generate()
+        state = self._generator.generate()
+        fixture_path = os.path.join(_DATA_DIR, "network.json")
+        
+        towers_dict = [
+            {
+                "id": t.id,
+                "name": t.name,
+                "type": t.type.value if hasattr(t.type, "value") else t.type,
+                "latitude": t.latitude,
+                "longitude": t.longitude,
+                "capacity": t.capacity,
+                "status": t.status.value if hasattr(t.status, "value") else t.status,
+                "tx_power_dbm": t.tx_power_dbm,
+                "frequency_mhz": t.frequency_mhz,
+                "current_users": getattr(t, "current_users", 0)
+            }
+            for t in state.towers
+        ]
+        connections_dict = [
+            {
+                "source_id": c.source_id,
+                "target_id": c.target_id,
+                "connection_type": c.connection_type,
+                "latency_ms": c.latency_ms,
+                "capacity_gbps": c.capacity_gbps
+            }
+            for c in state.connections
+        ]
 
-    def sync_digital_twin(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
+        with open(fixture_path, "w", encoding="utf-8") as fh:
+            json.dump({
+                "towers": towers_dict,
+                "connections": connections_dict
+            }, fh, indent=2)
+
+        return state
+
+    def sync_digital_twin(self, telemetry: Dict[str, Any]) -> NetworkState:
         """
-        Pushes real-world telemetry into the DigitalTwin and returns
-        the updated state.
-
-        Args:
-            telemetry: Raw telemetry dict from the physical network layer.
-
-        Returns:
-            The synchronised twin state dict.
-
-        TODO: accept NetworkState instead of a raw dict once the telemetry
-              ingestion pipeline is defined.
+        Pushes real-world telemetry into the DigitalTwin and updates network.json.
         """
-        return self._twin.sync_state(telemetry)
+        fixture_path = os.path.join(_DATA_DIR, "network.json")
+        if os.path.exists(fixture_path):
+            with open(fixture_path, encoding="utf-8") as fh:
+                raw: Dict[str, Any] = json.load(fh)
+        else:
+            raw = {"towers": [], "connections": []}
+
+        # Update towers based on telemetry dict keys (e.g. tower ID)
+        for tower in raw.get("towers", []):
+            tid = tower.get("id")
+            if tid in telemetry:
+                t_tel = telemetry[tid]
+                if "status" in t_tel:
+                    tower["status"] = t_tel["status"]
+                if "current_users" in t_tel:
+                    tower["current_users"] = t_tel["current_users"]
+
+        # Write back to network.json
+        with open(fixture_path, "w", encoding="utf-8") as fh:
+            json.dump(raw, fh, indent=2)
+
+        # Call in-memory twin sync
+        self._twin.sync_state(telemetry)
+
+        # Build return state
+        from schemas.tower import Tower, NetworkConnection
+        towers = [Tower(**t) for t in raw["towers"]]
+        connections = [NetworkConnection(**c) for c in raw["connections"]]
+        return NetworkState(
+            towers=towers,
+            connections=connections,
+            generated_at=datetime.now(timezone.utc),
+        )
 
     def get_twin_state(self) -> Dict[str, Any]:
         """Returns the current DigitalTwin state snapshot."""
