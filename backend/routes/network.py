@@ -1,50 +1,41 @@
-from fastapi import APIRouter
+"""
+Network Routes
+==============
+HTTP interface for network topology operations.
 
-from core.network_generator import TelecomNetworkGenerator
-from core.digital_twin import DigitalTwin
-from core.feature_engineering import FeatureEngineering
+All business logic is delegated to NetworkService.
+This module is intentionally thin: validate -> call service -> return schema.
+"""
+from fastapi import APIRouter, Depends
 
-from optimization.qubo import QUBOFormulation
-from optimization.qpiai_optimizer import QpiAIOptimizer
+from schemas.network import NetworkState
+from services.deps import get_network_service
+from services.network_service import NetworkService
 
-from metrics.metrics_engine import MetricsEngine
+router = APIRouter(prefix="/network", tags=["Network"])
 
-router = APIRouter(
-    prefix="/network",
-    tags=["Network"]
+
+@router.get(
+    "/state",
+    response_model=NetworkState,
+    summary="Get current network state",
+    description="Returns the current network topology snapshot from the fixture store.",
 )
+def get_network_state(
+    service: NetworkService = Depends(get_network_service),
+) -> NetworkState:
+    """Returns the current network topology and tower states."""
+    return service.get_network_state()
 
 
-@router.get("/generate")
-def generate_network():
-
-    # Step 1 - Generate Network
-    generator = TelecomNetworkGenerator()
-    network = generator.generate_network()
-
-    # Step 2 - Digital Twin
-    digital = DigitalTwin(network)
-    network = digital.build()
-
-    # Step 3 - Feature Engineering
-    feature = FeatureEngineering(network)
-    network = feature.build()
-
-    # Step 4 - QUBO
-    qubo = QUBOFormulation(network)
-    network = qubo.compute_cost()
-
-    # Step 5 - Optimizer
-    optimizer = QpiAIOptimizer(network)
-    network = optimizer.solve()
-
-    # Step 6 - Metrics
-    metrics = MetricsEngine(network)
-    network = metrics.calculate()
-
-    # Final Response
-    return {
-        "status": "success",
-        "metrics": network["metrics"],
-        "optimization": network["optimization_result"]
-    }
+@router.post(
+    "/generate",
+    response_model=NetworkState,
+    summary="Generate synthetic network",
+    description="Generates a fresh synthetic network topology via NetworkGenerator.",
+)
+def generate_network(
+    service: NetworkService = Depends(get_network_service),
+) -> NetworkState:
+    """Generates a fresh synthetic network topology."""
+    return service.generate_network()

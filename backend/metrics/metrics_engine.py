@@ -1,95 +1,56 @@
+"""
+Metrics Engine
+==============
+Computes QoS (Quality of Service) and QoE (Quality of Experience) metrics
+from raw network telemetry parameters.
+
+This is a pure computation module with no external state. It can be safely
+instantiated as a module-level singleton.
+
+Extension point: add 'compute_throughput()', 'compute_jitter()', and
+'compute_availability()' methods as telemetry data becomes available.
+"""
+
+
 class MetricsEngine:
+    """Computes QoS, QoE, and throughput metrics for reporting."""
 
-    def __init__(self, network):
+    def compute_qos(self, delay: float, packet_loss: float) -> float:
+        """
+        Calculates a Quality of Service score on a 0-100 scale.
 
-        self.network = network
-        self.towers = network["towers"]
-        self.users = network["users"]
+        Args:
+            delay:        Round-trip latency in milliseconds (>= 0).
+            packet_loss:  Packet loss ratio in the range [0.0, 1.0].
 
-    def calculate(self):
+        Returns:
+            float: QoS score clamped to [0, 100]. Higher is better.
 
-        total_towers = len(self.towers)
+        Penalty model:
+            loss_penalty  = packet_loss * 500  (1% loss → -5 pts)
+            delay_penalty = delay * 0.1         (10 ms  → -1 pt)
+        """
+        loss_penalty: float = packet_loss * 500
+        delay_penalty: float = delay * 0.1
+        return max(0.0, min(100.0, 100.0 - loss_penalty - delay_penalty))
 
-        active_towers = sum(
-            1 for tower in self.towers
-            if tower["status"] == "ACTIVE"
-        )
+    def compute_qoe(self, qos: float) -> float:
+        """
+        Maps a QoS score to a Mean Opinion Score (MOS) on the 1-5 ITU-T P.800 scale.
 
-        connected_users = sum(
-            1 for user in self.users
-            if user["assigned_tower"] is not None
-        )
+        Args:
+            qos: QoS score in [0, 100].
 
-        avg_utilization = round(
+        Returns:
+            float: MOS value in {1.5, 3.0, 4.0, 4.5}.
 
-            sum(
-
-                tower["utilization"]
-
-                for tower in self.towers
-
-            ) / total_towers,
-
-            2
-
-        )
-
-        avg_latency = round(
-
-            sum(
-
-                tower["latency"]
-
-                for tower in self.towers
-
-            ) / total_towers,
-
-            2
-
-        )
-
-        avg_energy = round(
-
-            sum(
-
-                tower["energy_cost"]
-
-                for tower in self.towers
-
-            ) / total_towers,
-
-            2
-
-        )
-
-        overloaded = sum(
-
-            1 for tower in self.towers
-
-            if tower["network_state"] == "OVERLOADED"
-
-        )
-
-        metrics = {
-
-            "total_towers": total_towers,
-
-            "active_towers": active_towers,
-
-            "total_users": len(self.users),
-
-            "connected_users": connected_users,
-
-            "average_utilization": avg_utilization,
-
-            "average_latency": avg_latency,
-
-            "average_energy_cost": avg_energy,
-
-            "overloaded_towers": overloaded
-
-        }
-
-        self.network["metrics"] = metrics
-
-        return self.network
+        TODO: replace step function with a continuous regression model
+              calibrated against real subjective quality surveys.
+        """
+        if qos > 90:
+            return 4.5
+        if qos > 80:
+            return 4.0
+        if qos > 60:
+            return 3.0
+        return 1.5

@@ -1,0 +1,39 @@
+{
+  "scenarios": [
+    {
+      "id": "SCN-001",
+      "name": "Evening Peak Congestion",
+      "description": "Simulates 18:00-21:00 peak traffic load in downtown area.",
+      "duration_minutes": 180,
+      "effects": [
+        {
+          "type": "traffic_spike",
+          "target": "T001",
+          "magnitude": 1.8
+        },
+        {
+          "type": "traffic_spike",
+          "target": "T004",
+          "magnitude": 1.5
+        }
+      ]
+    },
+    {
+      "id": "SCN-002",
+      "name": "Fiber Cut - Suburb A",
+      "description": "Simulates a complete loss of the primary fiber backhaul.",
+      "duration_minutes": 60,
+      "effects": [
+        {
+          "type": "link_failure",
+          "target": "T002-T005"
+        },
+        {
+          "type": "latency_increase",
+          "target": "T005",
+          "magnitude": 45.0
+        }
+      ]
+    }
+  ]
+}

@@ -18,11 +18,11 @@ PulseOS/
 │   │   └── main.jsx      # Entrypoint
 │   └── package.json
 │
-├── backend/              # Flask Backend API
-│   ├── app.py            # Main App Entrypoint
-│   ├── config.py         # Config variables
+├── backend/              # FastAPI Backend API
+│   ├── app.py            # Main App Entrypoint (uvicorn entry)
+│   ├── config.py         # Config variables (env-var overridable)
 │   │
-│   ├── routes/           # Blueprints for modular routing
+│   ├── routes/           # FastAPI routers — one file per domain
 │   │   ├── network.py
 │   │   ├── scenario.py
 │   │   ├── prediction.py
@@ -83,7 +83,7 @@ PulseOS/
    ```
 2. Run the application:
    ```bash
-   python app.py
+   uvicorn app:app --reload --port 8000
    ```
 
 ### Frontend
