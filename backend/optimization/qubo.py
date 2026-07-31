@@ -1,39 +1,13 @@
-class QUBOFormulation:
+import numpy as np
 
-    def __init__(self, network):
+class QuboFormulation:
+    """Formulates telecom network allocation problems into Quadratic Unconstrained Binary Optimization (QUBO)."""
+    def __init__(self):
+        pass
 
-        self.network = network
-        self.towers = network["towers"]
-
-    # ----------------------------------------
-    # Compute Cost Function
-    # ----------------------------------------
-
-    def compute_cost(self):
-
-        qubo_matrix = []
-
-        for tower in self.towers:
-
-            utilization = tower["utilization"]
-
-            energy = tower["energy_cost"]
-
-            latency = tower["latency"]
-
-            cost = (
-                0.5 * utilization +
-                0.3 * energy +
-                0.2 * latency
-            )
-
-            tower["qubo_cost"] = round(cost, 2)
-
-            qubo_matrix.append({
-                "tower_id": tower["tower_id"],
-                "cost": round(cost, 2)
-            })
-
-        self.network["qubo_matrix"] = qubo_matrix
-
-        return self.network
+    def build_matrix(self, num_vars):
+        """Builds a random QUBO matrix for demo purposes."""
+        # Q matrix should be symmetric/upper-triangular
+        Q = np.random.uniform(-1, 1, size=(num_vars, num_vars))
+        Q = (Q + Q.T) / 2
+        return Q.tolist()
