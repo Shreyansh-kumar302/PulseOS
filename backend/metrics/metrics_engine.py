@@ -1,22 +1,95 @@
 class MetricsEngine:
-    """Computes QoS, QoE, and throughput metrics for reporting."""
-    def __init__(self):
-        pass
 
-    def compute_qos(self, delay, packet_loss):
-        """Calculates Quality of Service metric between 0 and 100."""
-        loss_penalty = packet_loss * 500
-        delay_penalty = delay * 0.1
-        qos = max(0, min(100, 100 - loss_penalty - delay_penalty))
-        return qos
+    def __init__(self, network):
 
-    def compute_qoe(self, qos):
-        """Calculates Quality of Experience index (1-5 MOS scale)."""
-        if qos > 90:
-            return 4.5
-        elif qos > 80:
-            return 4.0
-        elif qos > 60:
-            return 3.0
-        else:
-            return 1.5
+        self.network = network
+        self.towers = network["towers"]
+        self.users = network["users"]
+
+    def calculate(self):
+
+        total_towers = len(self.towers)
+
+        active_towers = sum(
+            1 for tower in self.towers
+            if tower["status"] == "ACTIVE"
+        )
+
+        connected_users = sum(
+            1 for user in self.users
+            if user["assigned_tower"] is not None
+        )
+
+        avg_utilization = round(
+
+            sum(
+
+                tower["utilization"]
+
+                for tower in self.towers
+
+            ) / total_towers,
+
+            2
+
+        )
+
+        avg_latency = round(
+
+            sum(
+
+                tower["latency"]
+
+                for tower in self.towers
+
+            ) / total_towers,
+
+            2
+
+        )
+
+        avg_energy = round(
+
+            sum(
+
+                tower["energy_cost"]
+
+                for tower in self.towers
+
+            ) / total_towers,
+
+            2
+
+        )
+
+        overloaded = sum(
+
+            1 for tower in self.towers
+
+            if tower["network_state"] == "OVERLOADED"
+
+        )
+
+        metrics = {
+
+            "total_towers": total_towers,
+
+            "active_towers": active_towers,
+
+            "total_users": len(self.users),
+
+            "connected_users": connected_users,
+
+            "average_utilization": avg_utilization,
+
+            "average_latency": avg_latency,
+
+            "average_energy_cost": avg_energy,
+
+            "overloaded_towers": overloaded
+
+        }
+
+        self.network["metrics"] = metrics
+
+        return self.network
