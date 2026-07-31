@@ -58,6 +58,10 @@ class Tower(BaseModel):
     frequency_mhz: Optional[float] = Field(
         None, ge=0, description="Primary operating frequency in MHz"
     )
+    current_users: int = Field(
+        default=0, ge=0,
+        description="Number of active user connections"
+    )
 
     model_config = {"from_attributes": True}
 

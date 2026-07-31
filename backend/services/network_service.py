@@ -111,7 +111,7 @@ class NetworkService:
             if tid in telemetry:
                 t_tel = telemetry[tid]
                 if "status" in t_tel:
-                    tower["status"] = t_tel["status"]
+                    tower["status"] = t_tel["status"].lower()
                 if "current_users" in t_tel:
                     tower["current_users"] = t_tel["current_users"]
 
