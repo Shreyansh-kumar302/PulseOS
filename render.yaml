@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: pulseos
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false # User can input this in Render UI
