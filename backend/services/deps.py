@@ -53,16 +53,20 @@ logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
-def get_gemini_service() -> GeminiService:
+def get_gemini_service() -> Optional[GeminiService]:
     """
     Provides the GeminiService singleton.
 
     ``@lru_cache`` ensures the underlying SDK client is initialised only once
     for the process lifetime.
 
-    Raises ``GeminiAuthError`` at first call if ``GEMINI_API_KEY`` is unset.
+    Returns None if ``GEMINI_API_KEY`` is unset or invalid.
     """
-    return GeminiService()
+    try:
+        return GeminiService()
+    except Exception as exc:
+        logger.warning("get_gemini_service(): GeminiService initialization failed: %s", exc)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +112,7 @@ def get_decision_engine() -> DecisionEngine:
 
 
 def get_summary_engine(
-    gemini_service: GeminiService = Depends(get_gemini_service),
+    gemini_service: Optional[GeminiService] = Depends(get_gemini_service),
 ) -> Optional[ExecutiveSummaryEngine]:
     """
     Provides an ExecutiveSummaryEngine backed by the GeminiService singleton.
@@ -117,6 +121,8 @@ def get_summary_engine(
     so that routes and services can degrade gracefully — the dashboard still
     works without an AI summary if Gemini is unreachable.
     """
+    if gemini_service is None:
+        return None
     try:
         return ExecutiveSummaryEngine(gemini_service=gemini_service)
     except GeminiServiceError as exc:
@@ -153,7 +159,7 @@ def get_dashboard_service(
 
 
 def get_copilot(
-    gemini_service: GeminiService = Depends(get_gemini_service),
+    gemini_service: Optional[GeminiService] = Depends(get_gemini_service),
 ) -> Copilot:
     """
     Provides a Copilot instance with GeminiService injected.

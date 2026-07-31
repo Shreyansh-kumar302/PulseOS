@@ -15,6 +15,7 @@ from routes.network import router as network_router
 from routes.dashboard import router as dashboard_router
 from routes.prediction import router as prediction_router
 from routes.copilot import router as copilot_router
+from routes.optimize import router as optimize_router
 
 app = FastAPI(
     title="PulseOS Backend",
@@ -36,6 +37,7 @@ app.include_router(network_router)
 app.include_router(dashboard_router)
 app.include_router(prediction_router)
 app.include_router(copilot_router)
+app.include_router(optimize_router)
 
 
 @app.get("/", tags=["Health"])

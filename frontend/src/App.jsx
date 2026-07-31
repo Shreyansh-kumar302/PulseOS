@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = 'http://127.0.0.1:5000';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -11,6 +11,11 @@ function App() {
   const [optResult, setOptResult] = useState(null);
   const [solverType, setSolverType] = useState('qubo');
   
+  // Dynamic backend states
+  const [networkData, setNetworkData] = useState({ towers: [], connections: [] });
+  const [recommendations, setRecommendations] = useState([]);
+  const [executiveSummary, setExecutiveSummary] = useState('');
+
   // KPI stats state connected to backend
   const [kpis, setKpis] = useState({
     activeUsers: '1,450',
@@ -42,54 +47,60 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Fetch real-time dashboard data from FastAPI Backend APIs
-  useEffect(() => {
-    // Fetch dashboard summary containing metrics & optimization results
-    fetch(`${API_BASE}/dashboard/`)
+  // Fetch full dashboard summary on mount
+  const fetchDashboardData = () => {
+    fetch(`${API_BASE}/dashboard/full`)
       .then(res => res.json())
       .then(data => {
-        if (data.status === 'success') {
-          const m = data.dashboard.metrics;
-          setKpis({
-            activeUsers: m.connected_users.toLocaleString(),
-            avgLatency: `${m.average_latency} ms`,
-            uptime: '99.98%',
-            towersCount: `${m.active_towers} / ${m.total_towers}`
-          });
-          
-          // Generate realistic chart heights from backend utilization data
-          const baseLoad = m.average_utilization;
-          setChartData([
-            { hr: '08:00', load: `${Math.max(10, Math.min(100, Math.round(baseLoad * 0.6)))}%` },
-            { hr: '10:00', load: `${Math.max(10, Math.min(100, Math.round(baseLoad * 0.8)))}%` },
-            { hr: '12:00', load: `${Math.max(10, Math.min(100, Math.round(baseLoad * 1.1)))}%` },
-            { hr: '14:00', load: `${Math.max(10, Math.min(100, Math.round(baseLoad * 0.9)))}%` },
-            { hr: '16:00', load: `${Math.max(10, Math.min(100, Math.round(baseLoad * 1.2)))}%` },
-            { hr: '18:00', load: `${Math.max(10, Math.min(100, Math.round(baseLoad * 0.7)))}%` },
-            { hr: '20:00', load: `${Math.max(10, Math.min(100, Math.round(baseLoad * 1.0)))}%` }
-          ]);
+        // 1. Update KPIs
+        const m = data.dashboard;
+        setKpis({
+          activeUsers: m.connected_users.toLocaleString(),
+          avgLatency: `${m.average_latency.toFixed(1)} ms`,
+          uptime: `${m.uptime_pct ? m.uptime_pct.toFixed(2) : '99.98'}%`,
+          towersCount: `${m.active_towers} / ${m.total_towers}`
+        });
+
+        // 2. Update live Digital Twin Map data
+        if (data.network) {
+          setNetworkData(data.network);
         }
+
+        // 3. Update Chart loads from predictions
+        if (data.predictions && data.predictions.length > 0) {
+          const formatted = data.predictions.slice(0, 7).map(p => {
+            const date = new Date(p.timestamp);
+            const hrStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return {
+              hr: hrStr,
+              load: `${Math.round(p.predicted_load_pct)}%`
+            };
+          });
+          setChartData(formatted);
+        }
+
+        // 4. Update AI recommendations
+        setRecommendations(data.recommendations || []);
+
+        // 5. Update Executive Summary briefing
+        setExecutiveSummary(data.executive_summary || 'AI Executive briefing is operational.');
       })
-      .catch(err => console.warn("Dashboard API offline. Using fallback."));
+      .catch(err => console.warn("Dashboard full API offline. Using visual fallback."));
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
   }, []);
 
-  // Handle Sync Digital Twin simulation calling backend
+  // Handle Sync Digital Twin calling POST endpoint
   const handleSync = () => {
     setSyncing(true);
-    fetch(`${API_BASE}/network/generate`)
+    fetch(`${API_BASE}/network/generate`, { method: 'POST' })
       .then(res => res.json())
       .then(data => {
         setSyncing(false);
-        if (data.status === 'success') {
-          const m = data.metrics;
-          setKpis({
-            activeUsers: m.connected_users.toLocaleString(),
-            avgLatency: `${m.average_latency} ms`,
-            uptime: '99.98%',
-            towersCount: `${m.active_towers} / ${m.total_towers}`
-          });
-          alert(`Digital Twin successfully synchronized with live physical telemetry! Found ${m.total_towers} active tower interfaces.`);
-        }
+        fetchDashboardData();
+        alert('Digital Twin successfully synchronized & regenerated!');
       })
       .catch(err => {
         setTimeout(() => {
@@ -99,32 +110,29 @@ function App() {
       });
   };
 
-  // Handle run optimization simulation POSTing to backend
+  // Handle run optimization POSTing to backend /optimize/run
   const handleOptimize = () => {
     setOptimizing(true);
     setOptResult(null);
 
-    fetch(`${API_BASE}/network/generate`)
+    fetch(`${API_BASE}/optimize/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ num_variables: 6 })
+    })
       .then(res => res.json())
       .then(data => {
         setOptimizing(false);
-        if (data.status === 'success') {
-          const opt = data.optimization;
-          const m = data.metrics;
-          setOptResult({
-            algorithm: opt.solver === 'Classical Heuristic' || opt.solver === 'Classical Placeholder' ? 'QPIAI Heuristic Solver' : opt.solver,
-            runtime_ms: 12,
-            latency_before_ms: (m.average_latency * 1.45).toFixed(1),
-            latency_after_ms: m.average_latency.toFixed(1),
-            packet_loss_before_pct: 0.02,
-            packet_loss_after_pct: 0.005,
-            throughput_gain_pct: 22.4,
-            vars_assigned: opt.selected_towers.reduce((acc, tower, idx) => {
-              acc[`tower_${tower.tower_id}_util`] = tower.utilization;
-              return acc;
-            }, {})
-          });
-        }
+        setOptResult({
+          algorithm: data.algorithm === 'qubo' ? 'QUBO Classical Optimizer' : data.algorithm,
+          runtime_ms: data.duration_ms,
+          latency_before_ms: 24,
+          latency_after_ms: (24 * 0.65).toFixed(1), // 35% latency reduction mockup representation
+          packet_loss_before_pct: 0.02,
+          packet_loss_after_pct: 0.005,
+          throughput_gain_pct: 22.1,
+          vars_assigned: data.variables_assigned
+        });
       })
       .catch(err => {
         setTimeout(() => {
@@ -143,7 +151,7 @@ function App() {
       });
   };
 
-  // Handle Copilot send message simulation
+  // Handle Copilot send message calling backend POST /copilot/chat
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -156,34 +164,59 @@ function App() {
     };
 
     setChatMessages(prev => [...prev, userMsg]);
-    const query = chatInput.toLowerCase();
+    const query = chatInput;
     setChatInput('');
 
-    // Simulated Bot Responses using static intelligence rules
-    setTimeout(() => {
-      let replyText = "I'm analyzing that query in relation to current network logs. What other statistics can I pull for you?";
-      if (query.includes('status') || query.includes('health')) {
-        replyText = `Current network status is healthy. Latency averages ${kpis.avgLatency}, uptime is at ${kpis.uptime}, and ${kpis.towersCount} towers are operational.`;
-      } else if (query.includes('congest') || query.includes('load')) {
-        replyText = "Alert: Tower T001 is experiencing peak traffic load of 82.4% capacity. I recommend initiating frequency re-allocation optimization.";
-      } else if (query.includes('optimize') || query.includes('fix')) {
-        replyText = "I recommend running the QPIAI solver. It can reduce total packet loss by up to 75% and boost network throughput by 31.8%.";
-      }
-
-      setChatMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        sender: 'bot',
-        text: replyText,
-        time: new Date().toTimeString().split(' ')[0]
-      }]);
-    }, 800); // 800ms
+    fetch(`${API_BASE}/copilot/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        message: query,
+        network_state: networkData.towers && networkData.towers.length > 0 ? networkData : null
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setChatMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          sender: 'bot',
+          text: data.reply,
+          time: new Date().toTimeString().split(' ')[0]
+        }]);
+      })
+      .catch(err => {
+        // Fallback simulation
+        setTimeout(() => {
+          let replyText = "I'm analyzing that query in relation to current network logs. What other statistics can I pull for you?";
+          const queryLower = query.toLowerCase();
+          if (queryLower.includes('status') || queryLower.includes('health')) {
+            replyText = `Current network status is healthy. Latency averages ${kpis.avgLatency}, uptime is at ${kpis.uptime}, and ${kpis.towersCount} towers are operational.`;
+          } else if (queryLower.includes('congest') || queryLower.includes('load')) {
+            replyText = "Alert: Tower T001 is experiencing peak traffic load of 82.4% capacity. I recommend initiating frequency re-allocation optimization.";
+          } else if (queryLower.includes('optimize') || queryLower.includes('fix')) {
+            replyText = "I recommend running the QPIAI solver. It can reduce total packet loss by up to 75% and boost network throughput by 31.8%.";
+          }
+          setChatMessages(prev => [...prev, {
+            id: Date.now() + 1,
+            sender: 'bot',
+            text: replyText,
+            time: new Date().toTimeString().split(' ')[0]
+          }]);
+        }, 600);
+      });
   };
 
-  // Mock data definition
-  const towers = {
-    T001: { name: 'Downtown Macrocell 1', type: 'Macrocell', capacity: 100, load: 82, status: 'Active', latency: 22, frequency: '1800 MHz' },
-    T002: { name: 'Suburban Microcell 2', type: 'Microcell', capacity: 150, load: 45, status: 'Active', latency: 18, frequency: '2100 MHz' },
-    T003: { name: 'Industrial Macrocell 3', type: 'Macrocell', capacity: 80, load: 92, status: 'Maintenance', latency: 45, frequency: '900 MHz' }
+  // Helper mapping functions to scale Bangalore GPS coords to 600x400 SVG box
+  const getSvgX = (lon) => {
+    const minLon = 77.5930;
+    const maxLon = 77.5980;
+    return 100 + ((lon - minLon) / (maxLon - minLon)) * 400;
+  };
+
+  const getSvgY = (lat) => {
+    const minLat = 12.9700;
+    const maxLat = 12.9750;
+    return 300 - ((lat - minLat) / (maxLat - minLat)) * 200;
   };
 
   return (
@@ -363,6 +396,18 @@ function App() {
                 </div>
               </div>
 
+              {/* Gemini Executive Summary Briefing */}
+              {executiveSummary && (
+                <div className="card" style={{ gridColumn: 'span 2', backgroundColor: 'rgba(102, 252, 241, 0.03)', border: '1px solid var(--border-active)' }}>
+                  <div className="card-title">
+                    <h3>🤖 Gemini Operations summary</h3>
+                  </div>
+                  <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: 'var(--text-primary)', textAlign: 'left' }}>
+                    {executiveSummary}
+                  </p>
+                </div>
+              )}
+
             </div>
           </>
         )}
@@ -373,33 +418,38 @@ function App() {
             {/* Interactive Tower Node Map */}
             <div className="map-view">
               <svg className="map-svg" viewBox="0 0 600 400">
-                {/* Connection links */}
-                <line x1="150" y1="120" x2="320" y2="280" className="edge-line active" />
-                <line x1="320" y1="280" x2="480" y2="150" className="edge-line active" />
-                <line x1="150" y1="120" x2="480" y2="150" className="edge-line critical" />
+                {/* Dynamically draw links */}
+                {networkData.connections && networkData.connections.map((c, idx) => {
+                  const src = networkData.towers.find(t => t.id === c.source_id);
+                  const tgt = networkData.towers.find(t => t.id === c.target_id);
+                  if (!src || !tgt) return null;
+                  return (
+                    <line 
+                      key={idx}
+                      x1={getSvgX(src.longitude)} 
+                      y1={getSvgY(src.latitude)} 
+                      x2={getSvgX(tgt.longitude)} 
+                      y2={getSvgY(tgt.latitude)} 
+                      className={`edge-line ${c.latency_ms > 2.8 ? 'critical' : 'active'}`} 
+                    />
+                  );
+                })}
                 
-                {/* Tower 1 */}
-                <g className={`node-group ${selectedTower === 'T001' ? 'selected' : ''}`} onClick={() => setSelectedTower('T001')}>
-                  <circle cx="150" cy="120" r="14" className="node-circle" />
-                  <circle cx="150" cy="120" r="30" fill="none" stroke="var(--accent-cyan)" strokeWidth="1" className="pulse-circle" />
-                  <text x="150" y="155" className="tower-label">Downtown (T001)</text>
-                </g>
-                
-                {/* Tower 2 */}
-                <g className={`node-group ${selectedTower === 'T002' ? 'selected' : ''}`} onClick={() => setSelectedTower('T002')}>
-                  <circle cx="320" cy="280" r="14" className="node-circle" />
-                  <circle cx="320" cy="280" r="30" fill="none" stroke="var(--accent-cyan)" strokeWidth="1" className="pulse-circle" />
-                  <text x="320" y="315" className="tower-label">Suburban (T002)</text>
-                </g>
-                
-                {/* Tower 3 */}
-                <g className={`node-group ${selectedTower === 'T003' ? 'selected' : ''}`} onClick={() => setSelectedTower('T003')}>
-                  <circle cx="480" cy="150" r="14" className="node-circle" style={{ stroke: 'var(--status-danger)' }} />
-                  <text x="480" y="185" className="tower-label" style={{ fill: 'var(--status-danger)' }}>Industrial (T003)</text>
-                </g>
+                {/* Dynamically draw tower nodes */}
+                {networkData.towers && networkData.towers.map((t) => (
+                  <g 
+                    className={`node-group ${selectedTower === t.id ? 'selected' : ''}`} 
+                    onClick={() => setSelectedTower(t.id)}
+                    key={t.id}
+                  >
+                    <circle cx={getSvgX(t.longitude)} cy={getSvgY(t.latitude)} r="12" className="node-circle" style={{ stroke: t.status === 'ACTIVE' ? 'var(--accent-cyan)' : 'var(--status-danger)' }} />
+                    <circle cx={getSvgX(t.longitude)} cy={getSvgY(t.latitude)} r="26" fill="none" stroke={t.status === 'ACTIVE' ? 'var(--accent-cyan)' : 'var(--status-danger)'} strokeWidth="1" className="pulse-circle" />
+                    <text x={getSvgX(t.longitude)} y={getSvgY(t.latitude) + 32} className="tower-label" style={{ fill: t.status === 'ACTIVE' ? 'var(--text-primary)' : 'var(--status-danger)' }}>{t.id}</text>
+                  </g>
+                ))}
               </svg>
               <div className="map-controls">
-                <span className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '4px 8px' }}>📡 3 Connected Nodes</span>
+                <span className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '4px 8px' }}>📡 {networkData.towers ? networkData.towers.length : 0} Connected Nodes</span>
                 <span className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '4px 8px' }}>🟢 SLA OK</span>
               </div>
             </div>
@@ -409,50 +459,56 @@ function App() {
               <div className="card-title">
                 <h3>Telemetry details</h3>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Tower Name</label>
-                  <p style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-cyan)' }}>{towers[selectedTower].name}</p>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Type</label>
-                    <p style={{ fontWeight: '600' }}>{towers[selectedTower].type}</p>
+              {networkData.towers && networkData.towers.find(t => t.id === selectedTower) ? (() => {
+                const t = networkData.towers.find(t => t.id === selectedTower);
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Tower Name</label>
+                      <p style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-cyan)' }}>{t.name}</p>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Type</label>
+                        <p style={{ fontWeight: '600' }}>{t.type}</p>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Frequency</label>
+                        <p style={{ fontWeight: '600', fontFamily: 'var(--font-mono)' }}>{t.frequency_mhz} MHz</p>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Capacity</label>
+                        <p style={{ fontWeight: '600' }}>{t.capacity} Gbps</p>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Status</label>
+                        <p style={{ 
+                          fontWeight: '700', 
+                          color: t.status === 'ACTIVE' ? 'var(--status-safe)' : 'var(--status-danger)' 
+                        }}>{t.status}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Connected Users</span>
+                        <span>{t.current_users || 0}</span>
+                      </label>
+                      <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', marginTop: '0.25rem', overflow: 'hidden' }}>
+                        <div style={{ 
+                          width: `${Math.min(100, ((t.current_users || 0) / t.capacity) * 100)}%`, 
+                          height: '100%', 
+                          backgroundColor: 'var(--accent-cyan)'
+                        }}></div>
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setActiveTab('optimization')}>
+                      Optimize Channel Allocation
+                    </button>
                   </div>
-                  <div>
-                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Frequency</label>
-                    <p style={{ fontWeight: '600', fontFamily: 'var(--font-mono)' }}>{towers[selectedTower].frequency}</p>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Capacity</label>
-                    <p style={{ fontWeight: '600' }}>{towers[selectedTower].capacity} Gbps</p>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Status</label>
-                    <p style={{ 
-                      fontWeight: '700', 
-                      color: towers[selectedTower].status === 'Active' ? 'var(--status-safe)' : 'var(--status-danger)' 
-                    }}>{towers[selectedTower].status}</p>
-                  </div>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Current Resource Usage</span>
-                    <span>{towers[selectedTower].load}%</span>
-                  </label>
-                  <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', marginTop: '0.25rem', overflow: 'hidden' }}>
-                    <div style={{ 
-                      width: `${towers[selectedTower].load}%`, 
-                      height: '100%', 
-                      backgroundColor: towers[selectedTower].load > 85 ? 'var(--status-danger)' : 'var(--accent-cyan)',
-                      boxShadow: towers[selectedTower].load > 85 ? '0 0 8px var(--status-danger)' : 'none'
-                    }}></div>
-                  </div>
-                </div>
-                <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setActiveTab('optimization')}>
-                  Optimize Channel Allocation
-                </button>
-              </div>
+                );
+              })() : (
+                <p style={{ color: 'var(--text-secondary)' }}>Select a tower node on the map to load telemetry details.</p>
+              )}
             </div>
           </div>
         )}
@@ -508,19 +564,19 @@ function App() {
               <div className="card-title">
                 <h3>AI Insights & Directives</h3>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.85rem' }}>
-                <div style={{ borderLeft: '3px solid var(--status-danger)', paddingLeft: '0.75rem' }}>
-                  <p style={{ fontWeight: '600' }}>Reroute Peak Traffic</p>
-                  <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    Congestion forecast on T001 exceeds 85% after 16:00. Recommend switching client paths to suburban T002.
-                  </p>
-                </div>
-                <div style={{ borderLeft: '3px solid var(--status-warning)', paddingLeft: '0.75rem' }}>
-                  <p style={{ fontWeight: '600' }}>Schedule Maintenance</p>
-                  <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    Industrial T003 telemetry reports connection instabilities. Schedule server check during low load hours (03:00 - 05:00).
-                  </p>
-                </div>
+              <div className="logs-list" style={{ gap: '1rem', fontSize: '0.85rem' }}>
+                {recommendations.length > 0 ? (
+                  recommendations.map((rec) => (
+                    <div key={rec.id} style={{ borderLeft: `3px solid ${rec.priority === 1 ? 'var(--status-danger)' : 'var(--status-warning)'}`, paddingLeft: '0.75rem' }}>
+                      <p style={{ fontWeight: '600' }}>{rec.action}</p>
+                      <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                        {rec.reason} (Estimated Impact: {rec.estimated_impact})
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ color: 'var(--text-secondary)' }}>No active recommendations.</p>
+                )}
               </div>
             </div>
           </div>
@@ -618,8 +674,8 @@ function App() {
                       </tr>
                     </tbody>
                   </table>
-                  <div style={{ marginTop: '1rem', padding: '0.5rem', backgroundColor: 'rgba(102, 252, 241, 0.05)', borderRadius: '6px', fontSize: '0.75rem', border: '1px dashed var(--accent-cyan)' }}>
-                    <strong>Variables output:</strong> {JSON.stringify(optResult.vars_assigned)}
+                  <div style={{ marginTop: '1rem', padding: '0.5rem', backgroundColor: 'rgba(102, 252, 241, 0.05)', borderRadius: '6px', fontSize: '0.75rem', border: '1px dashed var(--accent-cyan)', overflowX: 'auto' }}>
+                    <strong>Variables output:</strong> <pre style={{ fontFamily: 'var(--font-mono)', margin: 0 }}>{JSON.stringify(optResult.vars_assigned, null, 2)}</pre>
                   </div>
                 </div>
               ) : (
